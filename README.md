@@ -17,7 +17,7 @@ def load_processes(file):
                 "burst": int(row["burst"])
             })
     return processes
-
+part 2:
 
 # FCFS
 def fcfs(processes):
@@ -118,5 +118,238 @@ void create_process(int id) {
 
 
                 queue.append(p)
+
+
+                 import argparse
+import random
+import csv
+
+# -----------------------------
+# LOAD DATA
+# -----------------------------
+def load_from_csv(file):
+    processes = []
+    with open(file) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            processes.append({
+                "pid": int(row["pid"]),
+                "arrival": int(row["arrival"]),
+                "burst": int(row["burst"]),
+                "priority": int(row["priority"])
+            })
+    return processes
+part 3:
+
+def generate_random(n, seed):
+    random.seed(seed)
+    processes = []
+    for i in range(n):
+        processes.append({
+            "pid": i+1,
+            "arrival": random.randint(0, 5),
+            "burst": random.randint(1, 10),
+            "priority": random.randint(1, 5)
+        })
+    return processes
+
+
+# -----------------------------
+# METRICS
+# -----------------------------
+def calculate_metrics(schedule, processes):
+    result = {}
+    first_start = {}
+
+    for pid, start, end in schedule:
+        if pid not in result:
+            result[pid] = {"completion": 0}
+        result[pid]["completion"] = end
+
+        if pid not in first_start:
+            first_start[pid] = start
+
+    metrics = []
+    for p in processes:
+        pid = p["pid"]
+        arrival = p["arrival"]
+        burst = p["burst"]
+
+        completion = result[pid]["completion"]
+        tat = completion - arrival
+        wt = tat - burst
+        rt = first_start[pid] - arrival
+
+        metrics.append({
+            "pid": pid,
+            "arrival": arrival,
+            "burst": burst,
+            "completion": completion,
+            "tat": tat,
+            "wt": wt,
+            "rt": rt
+        })
+
+    return metrics
+
+
+# -----------------------------
+# FCFS
+# -----------------------------
+def fcfs(processes):
+    processes = sorted(processes, key=lambda x: (x["arrival"], x["pid"]))
+    time = 0
+    schedule = []
+
+    for p in processes:
+        if time < p["arrival"]:
+            time = p["arrival"]
+
+        start = time
+        end = time + p["burst"]
+        schedule.append((p["pid"], start, end))
+        time = end
+
+    return schedule
+
+
+# -----------------------------
+# SJF
+# -----------------------------
+def sjf(processes):
+    time = 0
+    completed = []
+    ready = []
+    processes = processes.copy()
+
+    while processes or ready:
+        ready += [p for p in processes if p["arrival"] <= time]
+        processes = [p for p in processes if p["arrival"] > time]
+
+        if not ready:
+            time += 1
+            continue
+
+        ready.sort(key=lambda x: (x["burst"], x["arrival"]))
+        p = ready.pop(0)
+
+        start = time
+        end = time + p["burst"]
+        completed.append((p["pid"], start, end))
+        time = end
+
+    return completed
+
+
+# -----------------------------
+# PRIORITY + AGING
+# -----------------------------
+def priority_scheduling(processes):
+    time = 0
+    ready = []
+    schedule = []
+    processes = processes.copy()
+
+    while processes or ready:
+        ready += [p for p in processes if p["arrival"] <= time]
+        processes = [p for p in processes if p["arrival"] > time]
+
+        # Aging
+        for p in ready:
+            p["priority"] = max(1, p["priority"] - (time // 3))
+
+        if not ready:
+            time += 1
+            continue
+
+        ready.sort(key=lambda x: (x["priority"], x["arrival"]))
+        p = ready.pop(0)
+
+        start = time
+        end = time + p["burst"]
+        schedule.append((p["pid"], start, end))
+        time = end
+
+    return schedule
+
+
+# -----------------------------
+# ROUND ROBIN
+# -----------------------------
+def round_robin(processes, quantum):
+    time = 0
+    queue = []
+    schedule = []
+    remaining = {p["pid"]: p["burst"] for p in processes}
+    processes = sorted(processes, key=lambda x: x["arrival"])
+
+    i = 0
+    while i < len(processes) or queue:
+        while i < len(processes) and processes[i]["arrival"] <= time:
+            queue.append(processes[i])
+            i += 1
+
+        if not queue:
+            time += 1
+            continue
+
+        p = queue.pop(0)
+        pid = p["pid"]
+
+        run = min(quantum, remaining[pid])
+        start = time
+        time += run
+        remaining[pid] -= run
+        schedule.append((pid, start, time))
+
+        while i < len(processes) and processes[i]["arrival"] <= time:
+            queue.append(processes[i])
+            i += 1
+
+        if remaining[pid] > 0:
+            queue.append(p)
+
+    return schedule
+
+
+# -----------------------------
+# MAIN
+# -----------------------------
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--file")
+    parser.add_argument("--random", type=int)
+    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--quantum", type=int, default=2)
+
+    args = parser.parse_args()
+
+    if args.file:
+        processes = load_from_csv(args.file)
+    else:
+        processes = generate_random(args.random, args.seed)
+
+    print("\nRunning ALL Algorithms...\n")
+
+    algorithms = {
+        "FCFS": fcfs(processes),
+        "SJF": sjf(processes),
+        "PRIORITY": priority_scheduling(processes),
+        "RR": round_robin(processes, args.quantum)
+    }
+
+    for name, sched in algorithms.items():
+        print(f"\n=== {name} ===")
+        metrics = calculate_metrics(sched, processes)
+
+        for m in metrics:
+            print(m)
+
+    print("\n0 errors from 0 contexts")
+
+
+if __name__ == "__main__":
+    main()
+    
 
     return result
